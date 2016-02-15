@@ -1,6 +1,6 @@
 
 " VIM PARINFER PLUGIN
-" v 0.0.3
+" v 0.0.4
 " brian@brianhurlow.com
 
 " TODO: let server port be global var
@@ -96,15 +96,14 @@ function! parinfer#encode(data)
 endfunction
 
 function! parinfer#send_buffer()
-
-  "if !g:parinfer
-  "  echo "parinfer server not started"
-  "  return 0
-  "endif
-  
   let pos = getpos(".")
   let cursor = pos[0]
   let line = pos[1]
+  " If space inputed don't send buffer to parinfer. Otherwise
+  " parinfer would autoindent buffer, ignoring \space insertions
+  if getline('.')[col('.')-2] == " "
+	  return 0
+  endif
 
   let block = s:Select_full_form()
   let top_line = block[0]
@@ -182,19 +181,14 @@ function! parinfer#do_undent()
   call parinfer#send_buffer()
 endfunction
 
-"nnoremap <buffer> <leader>bb :call parinfer#pasend_buffer()<cr>
 com! -bar ToggleParinferMode cal parinfer#ToggleParinferMode() 
 
 augroup parinfer
   autocmd!
   autocmd BufNewFile,BufReadPost *.clj,*.cljs,*.cljc call parinfer#start_server()
-  autocmd InsertLeave *.clj,*.cljs,*.cljc call parinfer#send_buffer()
-  "autocmd VimLeavePre *.clj,*cljs,*.cljc call parinfer#stop_server()
+  "autocmd InsertLeave *.clj,*.cljs,*.cljc call parinfer#send_buffer()
+  autocmd TextChangedI *.clj,*.cljs,*.cljc call parinfer#send_buffer()
+  autocmd VimLeavePre *.clj,*cljs,*.cljc call <sid> parinfer#stop_server()
   autocmd FileType clojure nnoremap <buffer> <Tab> :call parinfer#do_indent()<cr>
   autocmd FileType clojure nnoremap <buffer> <S-Tab> :call parinfer#do_undent()<cr>
-  " stil considering these mappings
-  "au TextChanged *.clj,*.cljc,*.cljs call parinfer#send_buffer()
-  "au FileType clojure nnoremap <M-Tab> :call <sid>do_undent()<cr>
-  "autocmd FileType clojure nnoremap <buffer> ]] /^(<CR>
-  "autocmd FileType clojure nnoremap <buffer> [[ ?^(<CR>
 augroup END
