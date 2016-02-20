@@ -96,14 +96,25 @@ function! parinfer#encode(data)
 endfunction
 
 function! parinfer#send_buffer()
+  " If space inputed don't send buffer to parinfer. Otherwise
+  " parinfer would autoindent buffer, ignoring \space insertions
+  if getline('.')[col('.')-2] =~ ')'
+  elseif getline('.')[col('.')-2] =~ '('
+  elseif getline('.')[col('.')-2] =~ ']'
+  elseif getline('.')[col('.')-2] =~ '['
+  elseif getline('.')[col('.')-2] =~ '}'
+  elseif getline('.')[col('.')-2] =~ '{'
+  else
+	  return 0
+  endif
+
   let pos = getpos(".")
   let cursor = pos[0]
   let line = pos[1]
-  " If space inputed don't send buffer to parinfer. Otherwise
-  " parinfer would autoindent buffer, ignoring \space insertions
-  if getline('.')[col('.')-2] == " "
-	  return 0
-  endif
+
+  "if getline('.')[col('.')-2] == " "
+  "        return 0
+  "endif
 
   let block = s:Select_full_form()
   let top_line = block[0]
