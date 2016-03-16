@@ -96,25 +96,9 @@ function! parinfer#encode(data)
 endfunction
 
 function! parinfer#send_buffer()
-  " If space inputed don't send buffer to parinfer. Otherwise
-  " parinfer would autoindent buffer, ignoring \space insertions
-  if getline('.')[col('.')-2] =~ ')'
-  elseif getline('.')[col('.')-2] =~ '('
-  elseif getline('.')[col('.')-2] =~ ']'
-  elseif getline('.')[col('.')-2] =~ '['
-  elseif getline('.')[col('.')-2] =~ '}'
-  elseif getline('.')[col('.')-2] =~ '{'
-  else
-	  return 0
-  endif
-
   let pos = getpos(".")
   let cursor = pos[0]
   let line = pos[1]
-
-  "if getline('.')[col('.')-2] == " "
-  "        return 0
-  "endif
 
   let block = s:Select_full_form()
   let top_line = block[0]
@@ -152,7 +136,56 @@ function! parinfer#send_buffer()
   else
     call parinfer#draw(res, top_line, bottom_line)
   endif
-  
+
+endfunction
+ 
+
+function! parinfer#send_insert_buffer()
+  if getline('.')[col('.')-2] =~ ' ' 
+          return 0
+  endif
+
+  let pos = getpos(".")
+  let cursor = pos[0]
+  let line = pos[1]
+
+  let block = s:Select_full_form()
+  let top_line = block[0]
+  let bottom_line = block[1]
+  let form = block[2]
+
+  let body = parinfer#encode(form)
+
+  let jsonbody = '{"text":' . body . ',"cursor":' . cursor . ',"line":' . line . '}'
+
+  " avoiding passing var directly 
+  " to shell cmd b/c of enconding crazyness
+  let cmd = "cat /tmp/parifer_deck.txt | curl -s -X POST -d @- localhost:8088"
+  let cmd = cmd . "/" . g:parinfer_mode
+
+  " call silent here b/c redir normally
+  " prints to page and file
+  :silent call parinfer#write_tmp(jsonbody)
+
+  let res = ""
+
+  try
+    let res = system(cmd)
+  catch
+    echom "parinfer curl exec error"
+    echom "error code" . v:exception
+  finally
+    " echom "finally block"
+  endtry
+
+  " if our shell command fails 
+  " don't draw the res
+  if v:shell_error != 0
+    echo "shell error"
+  else
+    call parinfer#draw(res, top_line, bottom_line)
+  endif
+
 endfunction
 
 function! parinfer#start_server()
@@ -195,11 +228,11 @@ endfunction
 com! -bar ToggleParinferMode cal parinfer#ToggleParinferMode() 
 
 augroup parinfer
-  autocmd!
-  autocmd BufNewFile,BufReadPost *.clj,*.cljs,*.cljc call parinfer#start_server()
-  "autocmd InsertLeave *.clj,*.cljs,*.cljc call parinfer#send_buffer()
-  autocmd TextChangedI *.clj,*.cljs,*.cljc call parinfer#send_buffer()
-  autocmd VimLeavePre *.clj,*cljs,*.cljc call <sid> parinfer#stop_server()
+  "autocmd!
+  autocmd BufNewFile,BufReadPost *.clj,*.cljs,*.cljc,*.boot call parinfer#start_server()
+  autocmd TextChangedI *.clj,*.cljs,*.cljc,*.boot call parinfer#send_insert_buffer()
+  autocmd TextChanged *.clj,*.cljs,*.cljc,*.boot  call parinfer#send_buffer()
+  " autocmd VimLeavePre *.clj,*cljs,*.cljc call <sid> parinfer#stop_server()
   autocmd FileType clojure nnoremap <buffer> <Tab> :call parinfer#do_indent()<cr>
   autocmd FileType clojure nnoremap <buffer> <S-Tab> :call parinfer#do_undent()<cr>
 augroup END
